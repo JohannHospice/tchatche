@@ -9,12 +9,14 @@ struct segment {
 };
 
 struct message {
+	int length;
 	char *type;
 	struct segment *segment;
 };
 
-struct message *newMessage(char *type){
+struct message *newMessage(int length, char *type){
 	struct message* message = malloc(sizeof(struct message));
+	message->length = length;
 	message->type = type;
 	message->segment = NULL;
 	return message;
@@ -104,7 +106,7 @@ struct message *parseMessage(const char *str){
 	int length = atoi(splitStr(str, 0, 4));
 	
 	//get type
-	struct message *message = newMessage(splitStr(str, 4, 8));
+	struct message *message = newMessage(length, splitStr(str, 4, 8));
 
 	//get segments 
 	int index = 8;
@@ -122,12 +124,76 @@ struct message *parseMessage(const char *str){
 	
 	return message;
 }
+
+char *itoa(int value){
+	char *str = malloc(sizeof(char) * 4);
+
+	int pow = 1000;
+
+	for (int i = 0; i < 4; ++i){
+		int j = value / pow;
+		str[i] = j + '0';
+		value -= j * pow; 
+		pow /= 10; 
+	}
+
+	return str;
+}
+
+//TODO: advance checker
+int verify(struct message *message) {
+	int length = 4;
+	
+	struct segment *segment = message->segment;
+	while(segment != NULL) {
+		length += segment->size + 4;
+		segment = segment->next;
+	}
+
+	if(length == message->length)
+		return 1;
+
+	return 0;
+}
+
+char *composeMessage(struct message *message) {
+	if(verify(message) == 0){
+		printf("error: message composition unvalid\n");
+		return NULL;
+	}
+
+	char *messageStr = malloc(sizeof(char) * message->length);
+	
+	char *length = itoa(message->length);
+
+	for (int i = 0; i < 4; ++i)
+		messageStr[i] = length[i];
+
+	int indexMessage = 4;
+	for (int i = 0; i < 4; ++i)
+		messageStr[indexMessage++] = message->type[i];
+
+	struct segment *segment = message->segment;
+	while(segment != NULL) {
+		length = itoa(segment->size);
+		
+		for (int i = 0; i < 4; ++i)
+			messageStr[indexMessage++] = length[i];
+		
+		for (int i = 0; i < segment->size; ++i)
+			messageStr[indexMessage++] = segment->body[i];
+		
+		segment = segment->next;
+	}
+
+	return messageStr;
+}
 /*
 //test
 int main(int argv, const char** argc){
-
 	struct message* message = parseMessage("0034XYZT0003Bon0019int main(int argv,");
 	printMessage(message);
+	printf("%s\n", composeMessage(message));
 
 	struct segment* segment;
 	while(segment != NULL){
@@ -137,8 +203,9 @@ int main(int argv, const char** argc){
 			printSegment(segment);
 		}
 	}
-
 	printMessage(message);
+
+	printf("%s\n", composeMessage(message));
 	return 0;
 }
 */
