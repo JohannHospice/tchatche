@@ -1,0 +1,11 @@
+ncurses pour separer std in et out
+fcntl(fd, F_GETFL)
+
+SHUT
+pseudo
+chaine
+
+LIST
+0013LIST003A
+0013LIST003B
+0013LIST003C
