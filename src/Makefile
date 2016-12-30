@@ -1,27 +1,26 @@
 CC=gcc
 CFLAGS=-Wall
-EXEC=main
 
-all: $(EXEC)
+run_client: client
+	clear && ./client
 
-#run: $(EXEC)
-#	./main
+run_server: server
+	clear && ./server
 
 client: message.o client.o
+	$(CC) -o $@ $^
+
+server: message.o server.o
 	$(CC) -o $@ $^
 
 client.o: client.c message.h
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-client.o: client.c message.h
+server.o: server.c message.h
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 message.o: message.c
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-
 clean:
-	rm -rf *.o
-
-mrproper: clean
-	rm -rf $(EXEC)ls
+	rm -rf *.o && rm -rf tmp/

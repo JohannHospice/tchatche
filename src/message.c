@@ -14,10 +14,10 @@ struct message {
 	struct segment *segment;
 };
 
-struct message *newMessage(int length, char *type){
+struct message *newMessage(char *type){
 	struct message* message = malloc(sizeof(struct message));
-	message->length = length;
 	message->type = type;
+	message->length = 8;
 	message->segment = NULL;
 	return message;
 }
@@ -32,6 +32,7 @@ struct segment *newSegment(int size, char *body){
 
 // ajoute segment
 void addSegment(struct message *message, int size, char *body){
+	message->length += size + 4;
 	struct segment *segment_tmp = newSegment(size, body);
 
 	if(message->segment == NULL)
@@ -72,7 +73,7 @@ struct segment *removeFirstSegment(struct message *message){
 }
 
 void printMessage(const struct message *message){
-	printf("message:\n\ttype: %s\n", message->type);
+	printf("message:\n\tlength: %d\n\ttype: %s\n", message->length, message->type);
 	struct segment *segment = message->segment;
 	if(segment != NULL){
 		printf("\tsegment:\n\t\tsize: %d\n\t\tbody: %s\n", segment->size, segment->body);
@@ -100,31 +101,6 @@ char *splitStr(const char *str, const int from, const int to){
 	return value;
 }
 
-struct message *parseMessage(const char *str){
-	
-	//get message length
-	int length = atoi(splitStr(str, 0, 4));
-	
-	//get type
-	struct message *message = newMessage(length, splitStr(str, 4, 8));
-
-	//get segments 
-	int index = 8;
-	while(index < length){
-		//get segment size
-		int size = atoi(splitStr(str, index, index + 4));
-		index += 4;
-
-		//get segment body
-		char *body = splitStr(str, index, index + size);
-		index += size;
-
-		addSegment(message, size, body);
-	}
-	
-	return message;
-}
-
 char *itoa(int value){
 	char *str = malloc(sizeof(char) * 4);
 
@@ -142,7 +118,7 @@ char *itoa(int value){
 
 //TODO: advance checker
 int verify(struct message *message) {
-	int length = 4;
+	int length = 8;
 	
 	struct segment *segment = message->segment;
 	while(segment != NULL) {
@@ -154,6 +130,31 @@ int verify(struct message *message) {
 		return 1;
 
 	return 0;
+}
+
+struct message *parseMessage(const char *str){
+	
+	//get message length
+	int length = atoi(splitStr(str, 0, 4));
+	
+	//get type
+	struct message *message = newMessage(splitStr(str, 4, 8));
+
+	//get segments 
+	int index = 8;
+	while(index < length){
+		//get segment size
+		int size = atoi(splitStr(str, index, index + 4));
+		index += 4;
+
+		//get segment body
+		char *body = splitStr(str, index, index + size);
+		index += size;
+
+		addSegment(message, size, body);
+	}
+	
+	return message;
 }
 
 char *composeMessage(struct message *message) {
@@ -188,24 +189,24 @@ char *composeMessage(struct message *message) {
 
 	return messageStr;
 }
-/*
+
 //test
 int main(int argv, const char** argc){
-	struct message* message = parseMessage("0034XYZT0003Bon0019int main(int argv,");
+	struct message* message;
+
+	//parse message
+	message = parseMessage("0020XYZT0003Bon00018");
+	
 	printMessage(message);
 	printf("%s\n", composeMessage(message));
 
-	struct segment* segment;
-	while(segment != NULL){
-		segment = removeLastSegment(message);
-		if(segment != NULL){
-			printf("\nremove:\n");
-			printSegment(segment);
-		}
-	}
+	//compose message
+	message = newMessage("XYZT");
+	addSegment(message, 3, "Bon");
+	addSegment(message, 1, "8");
+	
 	printMessage(message);
-
 	printf("%s\n", composeMessage(message));
+	
 	return 0;
 }
-*/

@@ -15,75 +15,137 @@
 
 #include "message.h"
 
-#define TMP "tmp/"
-#define READDER "tmp/read"
 #define RWX_ALL 0777
+#define TMP "tmp/"
+#define PIPE_SERVER_PATH "tmp/serv"
+struct segment {
+	int size;
+	char *body;
+	struct segment *next;
+};
 
-void init() {
+struct message {
+	int length;
+	char *type;
+	struct segment *segment;
+};
+
+int init() {
 	if(access(TMP, F_OK) != F_OK)
-		mkdir(TMP, RWX_ALL);
-
-	if(access(READDER, F_OK) != F_OK) 
-		mkfifo(READDER, RWX_ALL);
+		if(mkdir(TMP, RWX_ALL)== -1)
+			return -1; 
+	return 0;
 }
 
-void clean() {
-	remove(READDER);
-	rmdir(TMP);
+void log_str(char *str){
+	printf("// %s\n", str);
 }
 
-int login(int pipe_w) {
-	printf("Pseudo> ");
-
-	char *pseudoStr;
-	scanf("%s", pseudoStr);
-	int pseudoSize = sizeof(pseudoStr);
-	
-	struct message *message = newMessage(4 + 4 + 4 + pseudoSize, "HELO");
-	addSegment(message, pseudoSize, pseudoStr);
-	
-	char *messageStr = composeMessage(message);
-//	write(pipe_w, &messageStr, message->length);
-	return 1;
+void log_int(int i){
+	printf("// %d\n", i);
 }
 
 int main(int argv, const char **argc){
-	init();
-	int pipe_r = open(READDER, O_RDONLY), pipe_w;
+	int pipe_w, pipe_r, id;
+	char buffer[BUFSIZ + 1];
+	if(init() == -1){
+		perror("error: initialisation\n");
+		return -1; 
+	}
 
-	if(login(pipe_w) == 0) {
-		perror("error: login");
+	// login
+	printf("Pseudo> ");
+
+	char pseudo[20] = "";
+	scanf("%s", pseudo);
+	int pseudo_size = sizeof(pseudo);
+	
+	log_str(pseudo);
+	log_int(pseudo_size);
+
+	int pipe_size = 6 + pseudo_size;
+
+	//open write sever pipe 
+	if(access(PIPE_SERVER_PATH, F_OK) != F_OK) {
+		perror("error: no server found\n");
+		return -1;
+	}
+	log_str("success: pipe write exist");
+
+	if((pipe_w = open(PIPE_SERVER_PATH, O_WRONLY)) == -1){
+		perror("error: open pipe write");
 		return -1;
 	}
 
-	int run = 0;
-	do{
-		char *messageStr;
-		read(pipe_r, &messageStr, sizeof(messageStr));
+	//create read pipe
+	char *pipe_r_path = malloc(sizeof(char) * pipe_size);
+	strcpy(pipe_r_path, TMP);
+	strcat(pipe_r_path, pseudo);
+	log_str(pipe_r_path);
 
-		struct message *message = parseMessage(messageStr);
+	if(access(pipe_r_path, F_OK) != F_OK) 
+		if(mkfifo(pipe_r_path, RWX_ALL) == -1){
+			perror("error: mkfifo read\n");
+			return -1;
+		}
+	log_str("success: pipe read exist");
+
+	if((pipe_r = open(pipe_r_path, O_RDONLY)) == -1){
+		perror("error: open pipe read");
+		return -1;
+	}
+
+	// connection
+	//compose message
+	struct message *message = newMessage("HELO");
+	addSegment(message, pseudo_size, pseudo);
+	addSegment(message, pipe_size, pipe_r_path);
+	char *composeMsg = composeMessage(message);
+	
+	log_str(composeMsg);
+	//send
+	write(pipe_w, &composeMsg, BUFSIZ);
+
+	//wait for answer
+	read(pipe_r, &buffer, BUFSIZ);
+	log_str(buffer);
+	message = parseMessage(buffer);
+	
+	if(strcmp(message->type, "OKOK") == 0){
+		printf("Connected.\n");
+		id = atoi(message->segment->body);
+	}
+	else if(strcmp(message->type, "BADD") == 0){
+		printf("error: connection -> BADD\n");
+		return -1;
+	}
+	else {
+		printf("error: connection\n");
+		return -1;
+	}
+
+	int run = 1;
+	do{
+		read(pipe_r, &buffer, BUFSIZ);
+
+		struct message *message = parseMessage(buffer);
 		//TODO
-		/*
-		if(strcmp(message->type, "OKOK") == 0){
-		} 
-		else if(strcmp(message->type, "BADD") == 0){
-		} 
-		else if(strcmp(message->type, "BYEE") == 0){
-		} 
-		else if(strcmp(message->type, "OKOK") == 0){
-		} 
+		if(strcmp(message->type, "BYEE") == 0){
+			run = 0;
+		}
+		else if(strcmp(message->type, "BCST") == 0){
+		}
 		else if(strcmp(message->type, "PRVT") == 0){
 		} 
 		else if(strcmp(message->type, "LIST") == 0){
 		} 
 		else if(strcmp(message->type, "SHUT") == 0){
 		}
-		*/
 	} while(run);
 
 	close(pipe_w);
 	close(pipe_r);
+	remove(PIPE_SERVER_PATH);
 
-	clean();
 	return 0;
 }
