@@ -9,14 +9,17 @@
 #include <fcntl.h>
 
 #include <dirent.h>
-#include <strings.h>
+#include <string.h>
 #include <time.h>
-#include <stdlib.h>
+
 #include "message.h"
+#include "tools.h"
+#include "composer.h"
 
 #define TMP_PATH "tmp/"
 #define PIPE_SERVER_PATH "tmp/serv"
 #define RWX_ALL 0777
+#define LIMIT_CLIENT 20
 
 int init(){
 	if(access(TMP_PATH, F_OK) != F_OK)
@@ -28,18 +31,19 @@ int init(){
 	return 0;
 }
 
-void log_str(char *str){
-	printf("// %s\n", str);
-}
-
-void log_int(int i){
-	printf("// %d\n", i);
-}
+struct client {
+	char *pseudo_str;
+	int pseudo_size;
+	int pipe;
+	int id;
+};
 
 int main(int argv, const char **argc){
-	int pipe_r, 
-		pipe_w_size = 0;
-	int *pipe_w = malloc(sizeof(int) * 0); 
+	struct client *client = malloc(sizeof(struct client) * LIMIT_CLIENT);
+
+	int pipe_r,
+		nb_client = 0;
+
 	char buffer[BUFSIZ + 1];
 
 	if(init() == -1) {
@@ -47,54 +51,73 @@ int main(int argv, const char **argc){
 		return -1;
 	}
 
+	printf("waiting for client\n");
 	pipe_r = open(PIPE_SERVER_PATH, O_RDONLY);
-	log_int(pipe_r);
 
-	char *pseudo
 	int run = 1;
+	struct message *message;
 	do {
 		read(pipe_r, &buffer, BUFSIZ);
-		
-		struct message *message;
+		printf("%s\n", buffer);
 
 		if((message = parseMessage(buffer)) == NULL)
 			continue;
 
-		if(strcmp(message->type, "HELO") == 0){
-			//get pseudo: message->segment->body);
-			//get pipe path: message->segment->next->body);
-			//open new pipe w
+		if(strcmp(message->type, "HELO") == 0) {
+			client[nb_client].pseudo_str = message->segment->body;
+			client[nb_client].pseudo_size = message->segment->size;
+			client[nb_client].pipe = open(message->segment->next->body, O_WRONLY);
 
-			char *id = itoa(pipe_w_size);
+			char id_str[11];
+			int id_size = itoa(id_str, nb_client);
 			
-			message = newMessage("OKOK");
-			addSegment(message, sizeof(id), id);
+			message = okok(id_size, id_str);
+			char *message_str = composeMessage(message);
 
-			buffer = composeMessage(message);
-			write(pipe_w[id], buffer, BUFSIZ);
+			write(client[nb_client].pipe, &message_str, message->length);
 
-			pipe_w_size++;
+			nb_client++;
 		} 
 		else if(strcmp(message->type, "BYEE") == 0){
 			int id = atoi(message->segment->body);
-			write(pipe_w[id], buffer, BUFSIZ);	
-			close(pipe_w[id]);
-			pipe_w[id] = NULL;
-			pseudo[id] = NULL;
+
+			write(client[id].pipe, &buffer, BUFSIZ);
+			close(client[id].pipe);
+			free(&client[id]);
 		} 
 		else if(strcmp(message->type, "BCST") == 0){
+			int id = atoi(message->segment->body);
+
+			message = bcst_server(
+				client[id].pseudo_size, 
+				client[id].pseudo_str, 
+				message->segment->next->size, 
+				message->segment->next->body);
+			char *message_str = composeMessage(message);
+			for (int i = 0; i < nb_client; ++i)
+				write(client[i].pipe, &message_str, message->length);
 		} 
 		else if(strcmp(message->type, "PRVT") == 0){
+			int id = atoi(message->segment->body);
+
+			message = prvt_server(
+				client[id].pseudo_size, 
+				client[id].pseudo_str, 
+				message->segment->next->next->size,
+				message->segment->next->next->body);
+			
+			char *message_str = composeMessage(message);
+			
+			while(strcmp(message->segment->next->body, client[i].pseudo_str) && i < nb_client) i++;
+
+			write(client[i].pipe, &message_str, message->length);
 		} 
 		else if(strcmp(message->type, "LIST") == 0){
 		} 
 		else if(strcmp(message->type, "SHUT") == 0){
 		}
-		if(run == 0) {
-			//prevenir tous clients
-		}
-		log_str("turn");
 	} while(run);
 
+	//prevenir tous clients
 	return 0;
 }

@@ -1,18 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-struct segment {
-	int size;
-	char *body;
-	struct segment *next;
-};
-
-struct message {
-	int length;
-	char *type;
-	struct segment *segment;
-};
+#include "message.h"
+#include "tools.h"
 
 struct message *newMessage(char *type){
 	struct message* message = malloc(sizeof(struct message));
@@ -45,33 +35,6 @@ void addSegment(struct message *message, int size, char *body){
 	}
 }
 
-// recupere et enleve dernier segment
-struct segment *removeLastSegment(struct message *message){
-	//first
-	if(message->segment == NULL)
-		return NULL;
-	struct segment * segment = message->segment;
-	//second
-	if (message->segment->next == NULL){
-		message->segment = NULL;
-		return segment;
-	}
-	//others
-	while(segment->next->next != NULL)
-		segment = segment->next;
-	struct segment *segment_tmp = segment->next;
-	segment->next = NULL;
-	return segment_tmp;
-}
-
-struct segment *removeFirstSegment(struct message *message){
-	if(message->segment == NULL)
-		return NULL;
-	struct segment * segment_tmp = message->segment;
-	message->segment = message->segment->next;
-	return segment_tmp;
-}
-
 void printMessage(const struct message *message){
 	printf("message:\n\tlength: %d\n\ttype: %s\n", message->length, message->type);
 	struct segment *segment = message->segment;
@@ -88,36 +51,8 @@ void printSegment(const struct segment *segment){
 	printf("segment:\n\tsize: %d\n\tbody: %s\n", segment->size, segment->body);
 }
 
-char *splitStr(const char *str, const int from, const int to){
-	char *value = malloc(sizeof(char) * (to - from));
-
-	int indexValue = 0;
-	int indexStr = from;
-	for (indexStr = from; indexStr < to; ++indexStr){
-		value[indexValue] = str[indexStr];
-		indexValue++;
-	}
-
-	return value;
-}
-
-char *itoa(int value){
-	char *str = malloc(sizeof(char) * 4);
-
-	int pow = 1000;
-
-	for (int i = 0; i < 4; ++i){
-		int j = value / pow;
-		str[i] = j + '0';
-		value -= j * pow; 
-		pow /= 10; 
-	}
-
-	return str;
-}
-
 //TODO: advance checker
-int verify(struct message *message) {
+int verify(const struct message *message) {
 	int length = 8;
 	
 	struct segment *segment = message->segment;
@@ -157,7 +92,7 @@ struct message *parseMessage(const char *str){
 	return message;
 }
 
-char *composeMessage(struct message *message) {
+char *composeMessage(const struct message *message) {
 	if(verify(message) == 0){
 		printf("error: message composition unvalid\n");
 		return NULL;
@@ -165,7 +100,8 @@ char *composeMessage(struct message *message) {
 
 	char *messageStr = malloc(sizeof(char) * message->length);
 	
-	char *length = itoa(message->length);
+	char length[4];
+	itoa_formated(length, message->length, 4, '0');
 
 	for (int i = 0; i < 4; ++i)
 		messageStr[i] = length[i];
@@ -176,8 +112,8 @@ char *composeMessage(struct message *message) {
 
 	struct segment *segment = message->segment;
 	while(segment != NULL) {
-		length = itoa(segment->size);
-		
+		itoa_formated(length, segment->size, 4, '0');
+
 		for (int i = 0; i < 4; ++i)
 			messageStr[indexMessage++] = length[i];
 		
@@ -190,23 +126,14 @@ char *composeMessage(struct message *message) {
 	return messageStr;
 }
 
-//test
-int main(int argv, const char** argc){
-	struct message* message;
+void freeSegment(struct segment* segment){
+	if(segment->next != NULL)
+		freeSegment(segment->next);
+	free(segment);
+}
 
-	//parse message
-	message = parseMessage("0020XYZT0003Bon00018");
-	
-	printMessage(message);
-	printf("%s\n", composeMessage(message));
-
-	//compose message
-	message = newMessage("XYZT");
-	addSegment(message, 3, "Bon");
-	addSegment(message, 1, "8");
-	
-	printMessage(message);
-	printf("%s\n", composeMessage(message));
-	
-	return 0;
+void freeMessage(struct message *message){
+	if(message->segment != NULL)
+		freeSegment(message->segment);
+	free(message);
 }

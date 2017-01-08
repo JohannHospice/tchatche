@@ -1,18 +1,25 @@
-struct segment;
-struct message;
 
-struct message *parseMessage(const char *str);
-char *composeMessage(struct message *message);
+struct segment {
+	int size;
+	char *body;
+	struct segment *next;
+};
+struct message {
+	int length;
+	char *type;
+	struct segment *segment;
+};
 
 struct message *newMessage(char *type);
 struct segment *newSegment(int size, char *body);
-
-struct segment *removeLastSegment(struct message *message);
-struct segment *removeFirstSegment(struct message *message);
 
 void addSegment(struct message *message, int size, char *body);
 
 void printMessage(const struct message *message);
 void printSegment(const struct segment *segment);
 
-char *itoa(int value);
+struct message *parseMessage(const char *str);
+char *composeMessage(const struct message *message);
+
+void freeSegment(struct segment* segment);
+void freeMessage(struct message *message);
