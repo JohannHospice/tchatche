@@ -1,4 +1,3 @@
-
 struct segment {
 	int size;
 	char *body;

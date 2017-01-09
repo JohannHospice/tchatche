@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "tools.h"
 
 char *splitStr(const char *str, const int from, const int to){
 	char *value = malloc(sizeof(char) * (to - from));

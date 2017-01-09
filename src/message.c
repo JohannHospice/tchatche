@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "message.h"
 #include "tools.h"
+#include "message.h"
 
 struct message *newMessage(char *type){
 	struct message* message = malloc(sizeof(struct message));
@@ -133,7 +133,9 @@ void freeSegment(struct segment *segment){
 }
 
 void freeMessage(struct message *message){
-	if(message->segment != NULL)
-		freeSegment(message->segment);
-	free(message);
+	if(message != NULL){
+		if(message->segment != NULL)
+			freeSegment(message->segment);
+		free(message);
+	}
 }

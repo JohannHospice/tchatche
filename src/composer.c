@@ -1,5 +1,6 @@
 #include "tools.h"
 #include "message.h"
+#include "composer.h"
 
 struct message *helo(int pseudo_size, char *pseudo_str, int tube_size, char *tube){
 	struct message *message = newMessage("HELO");
