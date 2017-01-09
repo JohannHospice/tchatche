@@ -52,6 +52,7 @@ int login(char *pseudo_str, int pseudo_limit){
 }
 
 int createReadPipe(char *pipe_str, int pipe_limit){
+	//verifie si nexiste pas deja
 	char rand_str[11]; 
 	int rand_size = itoa(rand_str, rand());
 	int pipe_size = TMP_SIZE + rand_size;
@@ -73,6 +74,7 @@ int createReadPipe(char *pipe_str, int pipe_limit){
 int main(int argv, const char **argc){
 	srand(time(NULL));
 	int pipe_w, pipe_r;
+	struct message *message;
 
 	struct user *user = malloc(sizeof(user));
 
@@ -93,34 +95,49 @@ int main(int argv, const char **argc){
 	int pipe_r_size = createReadPipe(pipe_r_str, sizeof(pipe_r_str));
 
 	// connection
-	struct message *message = helo(user->pseudo_size, user->pseudo_str, pipe_r_size, pipe_r_str);
-	char *composeMsg = composeMessage(message);
-	write(pipe_w, composeMsg, BUFSIZ);
+	message = helo(user->pseudo_size, user->pseudo_str, pipe_r_size, pipe_r_str);
+	char *message_str = composeMessage(message);
+	write(pipe_w, message_str, BUFSIZ);
+	free(message_str);
+	freeMessage(message);
 
 	if((pipe_r = open(pipe_r_str, O_RDONLY)) == -1){
 		perror("error: open pipe read");
 		return -1;
 	}
 	//wait for answer
-	int run = 1;
 	char buffer[BUFSIZ + 1];
+	read(pipe_r, &buffer, BUFSIZ);
+	message = parseMessage(buffer);
+	if(strcmp(message->type, "OKOK") == 0){
+		printf("Connected.\n");
+		user->id_str = message->segment->body;
+		user->id_size = message->segment->size;
+	}
+	else {
+		perror("connection error");
+		return -1;
+	}
+	freeMessage(message);
 
+	int run = 1;
 	pid_t reader = fork();
 	if(reader == -1)
 		perror("fork");
 	else if(reader == 0){
-		fclose(stdin);
 		int lus;
 		do {
 			if((lus = read(pipe_r, &buffer, BUFSIZ)) > 0) {
-				printf("%s\n", buffer);
-				struct message *message = parseMessage(buffer);
 
-				if(strcmp(message->type, "BYEE") == 0){
+				message = parseMessage(buffer);
+				if(strcmp(message->type, "OKOK") == 0){
+				}
+				else if(strcmp(message->type, "BYEE") == 0){
 					run = 0;
 				}
 				else if(strcmp(message->type, "BCST") == 0){
-					printf("[%s] %s\n", message->segment->body, message->segment->next->body);
+					if(strcmp(message->segment->body, user->pseudo_str) != 0)
+					printf("\n[%s] %s", message->segment->body, message->segment->next->body);
 				}
 				else if(strcmp(message->type, "PRVT") == 0){
 					printf("[private -> %s] %s\n", message->segment->body, message->segment->next->body);
@@ -132,22 +149,17 @@ int main(int argv, const char **argc){
 					printf("[shut]\n");
 					run = 0;
 				}
-				else if(strcmp(message->type, "OKOK") == 0){
-					printf("Connected.\n");
-					user->id_str = message->segment->body;
-					user->id_size = message->segment->size;
-				}
 				else if(strcmp(message->type, "BADD") == 0) {
 					printf("error: connection -> BADD\n");
 					run = 0;
 				} 
+				freeMessage(message);
 				fflush(stdout);
 			}
 			else {
 				run = 0;
 				printf("blavla error end\n");
 			}
-			freeMessage(message);
 		} while(run);
 		close(pipe_r);
 		remove(pipe_r_str);
@@ -156,25 +168,27 @@ int main(int argv, const char **argc){
 		do {
 			char txt_str[255];
 			printf("> ");
-			scanf("%s", txt_str);
-
-			int txt_size = 0;
-			while(txt_str[txt_size]!='\0' && txt_size < 255)
-				txt_size++;
-
-			struct message *message;
-			if(strcmp(txt_str, "quit") == 0)
+			fgets(txt_str, sizeof(txt_str), stdin);
+			int txt_size = str_size(txt_str, 255);
+			printf("(%s)\n",txt_str );
+			if(strcmp(txt_str, "quit\n") == 0)
 				message = byee(user->id_size, user->id_str);
-			else if(strcmp(txt_str, "shut") == 0)
+			else if(strcmp(txt_str, "shut\n") == 0)
 				message = shut_client(user->id_size, user->id_str);
+			else if(strstr(txt_str, "private to ") == 0){
+				char *pseudo_str = "client_pseudo";
+				int pseudo_size = str_size(pseudo_str, 20); 
+				message = prvt_client(user->id_size, user->id_str, pseudo_size, pseudo_str, txt_size, txt_str);
+			}
 			else
 				message = bcst_client(user->id_size, user->id_str, txt_size, txt_str);
+			
 			char *message_str = composeMessage(message);
 			
-			printf("%s\n", message_str);
-			write(pipe_w, &message_str, message->length);
+			write(pipe_w, message_str, message->length);
 
 			freeMessage(message);
+			free(message_str);
 		} while(run);
 		close(pipe_w);
 	}

@@ -126,7 +126,7 @@ char *composeMessage(const struct message *message) {
 	return messageStr;
 }
 
-void freeSegment(struct segment* segment){
+void freeSegment(struct segment *segment){
 	if(segment->next != NULL)
 		freeSegment(segment->next);
 	free(segment);

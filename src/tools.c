@@ -13,6 +13,11 @@ char *splitStr(const char *str, const int from, const int to){
 	return value;
 }
 
+int str_size(char *str, int limit){
+	int size = 0;
+	while(str[size]!='\0' && size < limit) size++;
+	return size;
+}
 
 int itoa(char *str, int value){
 	if (str == NULL)
