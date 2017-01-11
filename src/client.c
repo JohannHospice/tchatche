@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "tools.h"
 #include "message.h"
@@ -13,9 +15,14 @@
 #include "communication.h"
 
 #define RWX_ALL 0777
-#define TMP_SIZE 4
 #define TMP_STR "tmp/"
 #define PIPE_SERVER_PATH "tmp/serv"
+#define TMP_SIZE 4
+
+#define INPUT_SEPARATOR "> "
+#define INPUT_LIST "-l"
+#define INPUT_SHUT "-s"
+#define INPUT_BYEE "-b"
 
 int connectToServer() {
 	if(access(TMP_STR, F_OK) != F_OK || access(PIPE_SERVER_PATH, F_OK) != F_OK)
@@ -27,10 +34,17 @@ int connectToServer() {
 	}
 	return pipe;
 }
-
+void clearInputBuffer(){
+    char c;
+    do {
+        c = getchar();
+    } while (c != '\n' && c != EOF);
+}
 int login(char *pseudo_str, int pseudo_limit){
 	printf("Pseudo> ");
 	scanf("%s", pseudo_str);
+	clearInputBuffer();
+	//	fgets(pseudo_str, pseudo_limit, stdin);
 	int pseudo_size = 0;
 	while(pseudo_str[pseudo_size]!='\0' && pseudo_size < pseudo_limit)
 		pseudo_size++;
@@ -58,24 +72,23 @@ int createReadPipe(char *pipe_str, int pipe_limit){
 }
 
 struct user *generateIdentity(int pipe_w){
-	char pseudo_buffer[20];
-	int pseudo_size = login(pseudo_buffer, sizeof(pseudo_buffer));
-	char *pseudo_str = pseudo_buffer;
+	char pseudo_str[20];
+	int pseudo_size = login(pseudo_str, sizeof(pseudo_str));
 	//create read pipe
-	char pipe_buffer[20];
-	int pipe_size = createReadPipe(pipe_buffer, sizeof(pipe_buffer));
-	char *pipe_str = pipe_buffer;
+	char pipe_str[20];
+	int pipe_size = createReadPipe(pipe_str, sizeof(pipe_str));
 	// connection
 	struct message *message = helo(pseudo_size, pseudo_str, pipe_size, pipe_str);
-	send(message, pipe_w);
+	send(message, pipe_w, -1);
 	freeMessage(message);
 
 	int pipe_r = open(pipe_str, O_RDONLY);
 	if(pipe_r == -1)
 		return NULL;
 	//wait for answer
-	if((message = receive(pipe_r)) != NULL && strcmp(message->type, "OKOK") == 0)
-		return newUserForClient(
+	if((message = receive(pipe_r, 1)) != NULL && strcmp(message->type, "OKOK") == 0)
+		return newUser(
+			atoi(message->segment->body),
 			message->segment->size,
 			message->segment->body,
 			pseudo_size,
@@ -102,72 +115,105 @@ int main(int argv, const char **argc){
 		return -1;
 	}
 	printf("Connected.\n");
-
 	int run = 1;
 	pid_t reader = fork();
 	if(reader == -1)
 		perror("fork");
 	else if(reader == 0){
+		printf("%s", INPUT_SEPARATOR);
+		fflush(stdout);
+
 		do {
 			struct message *message;
-			if((message = receive(user->pipe)) != NULL) {
+			if((message = receive(user->pipe, -1)) != NULL) {
 				if(strcmp(message->type, "OKOK") == 0){
 				}
 				else if(strcmp(message->type, "BYEE") == 0){
+					printf("\n[byee]");
 					run = 0;
 				}
 				else if(strcmp(message->type, "BCST") == 0){
-					if(strcmp(message->segment->body, user->pseudo_str) != 0)
-						printf("\n[%s] %s", message->segment->body, message->segment->next->body);
+					printf("\n[%s] %s", message->segment->body, message->segment->next->body);
+					printf("\n%s", INPUT_SEPARATOR);
 				}
 				else if(strcmp(message->type, "PRVT") == 0){
-					printf("[private -> %s] %s\n", message->segment->body, message->segment->next->body);
-				} 
+					printf("\n[private -> %s] %s", message->segment->body, message->segment->next->body);
+					printf("\n%s", INPUT_SEPARATOR);
+				}
 				else if(strcmp(message->type, "LIST") == 0){
-					printf("[list -> %s] %s\n", message->segment->body, message->segment->next->body);
+					printf("\n[list -> %s] %s", message->segment->body, message->segment->next->body);
+					printf("\n%s", INPUT_SEPARATOR);
 				} 
 				else if(strcmp(message->type, "SHUT") == 0){
-					printf("[shut]\n");
+					printf("\n[shut]");
 					run = 0;
 				}
 				else if(strcmp(message->type, "BADD") == 0) {
-					printf("BADD\n");
+					printf("\n[badd]");
 				}
 				else {
-					perror("unknow type");
+					perror("receive");
 				}
 				fflush(stdout);
+				freeMessage(message);
 			}
 			else {
-				run = 0;
 				perror("receive");
+				run = 0;
 			}
-			freeMessage(message);
 		} while(run);
 		close(user->pipe);
 		remove(user->pipe_str);
 	}
 	else {
-		do {
-			printf("> ");
-			char txt_str[255];
-			fgets(txt_str, sizeof(txt_str), stdin);
-			int txt_size = str_size(txt_str, 255);
 
-			struct message *message;
-			if(strcmp(txt_str, "quit\n") == 0){
-				run = 0;
-				message = byee(user->id_size, user->id_str);
+		do {
+			char txt_str[255];
+			//	
+			if(fgets(txt_str, sizeof(txt_str), stdin) != NULL){
+				int txt_size = str_size(txt_str, sizeof(txt_str));
+				// remove '\n'
+				txt_str[--txt_size] = '\0';
+				struct message *message;
+				if(strcmp(txt_str, INPUT_BYEE) == 0){
+					message = byee(user->id_size, user->id_str);
+					run = 0;
+				}
+				else if(strcmp(txt_str, INPUT_SHUT) == 0) {
+					message = shut_client(user->id_size, user->id_str);
+					run = 0;
+				}
+				else if(strcmp(txt_str, INPUT_LIST) == 0){
+					message = list_client(user->id_size, user->id_str);
+				}
+				else if(str_start_with(txt_size, txt_str, 3, "-p:") == 0){
+					char pseudo_str[20];
+					int pseudo_size = slice_to_char(txt_size, txt_str, sizeof(pseudo_str), pseudo_str, 3, ' ');
+					int from = pseudo_size + 4;
+					
+					int private_txt_size = txt_size - from;
+					char private_txt_str[private_txt_size];
+				
+					slice(txt_str, private_txt_str, from, txt_size);
+				
+					message = prvt_client(
+						user->id_size,
+						user->id_str, 
+						pseudo_size,
+						pseudo_str,
+						private_txt_size,
+						private_txt_str);
+				}
+				else
+					message = bcst_client(user->id_size, user->id_str, txt_size, txt_str);
+				if(send(message, pipe_w, -1) == -1)
+					run = 0;
+				freeMessage(message);
 			}
-			else if(strcmp(txt_str, "shut\n") == 0)
-				message = shut_client(user->id_size, user->id_str);
-			else
-				message = bcst_client(user->id_size, user->id_str, txt_size, txt_str);
-			send(message, pipe_w);
-			freeMessage(message);
 		} while(run);
 		close(pipe_w);
+		wait(NULL);
+		printf("\n[exit]\n");
 	}
-	printf("exit\n");
 	return 0;
 }

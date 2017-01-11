@@ -1,3 +1,4 @@
+#define DEBUG 1
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -16,6 +17,7 @@
 #define TMP_PATH "tmp/"
 #define PIPE_SERVER_PATH "tmp/serv"
 #define LIMIT_CLIENT 20
+
 
 int init(){
 	if(access(TMP_PATH, F_OK) != F_OK)
@@ -42,33 +44,35 @@ int main(int argv, const char **argc){
 
 	struct user *clients[LIMIT_CLIENT];
 	do {
-		struct message *message = receive(pipe_r);
+		struct message *message = receive(pipe_r, 0);
 		if(message == NULL){
 			continue;
 		}
 		if(strcmp(message->type, "HELO") == 0) {
 			printf("[new client]\n");			
 				
+			char id_str[11];
+			int id_size = itoa(id_str, nb_client);
 			clients[nb_client] = newUser(
 				nb_client, 
+				id_size,
+				id_str,
 				message->segment->size, 
 				message->segment->body, 
 				message->segment->next->size, 
 				message->segment->next->body,
 				open(message->segment->next->body, O_WRONLY));
-
 			printUser(clients[nb_client]);
 			
-			
 			message = okok(clients[nb_client]->id_size, clients[nb_client]->id_str);
-			send(message, clients[nb_client]->pipe);
+			send(message, clients[nb_client]->pipe, 0);
 			nb_client++;
 		} 
 		else{
 			int id = atoi(message->segment->body);
 			if(strcmp(message->type, "BYEE") == 0){
 				message = byee(clients[id]->id_size, clients[id]->id_str);
-				send(message, clients[id]->pipe);
+				send(message, clients[id]->pipe, 0);
 				close(clients[id]->pipe);
 				free(clients[id]);
 			} 
@@ -78,22 +82,32 @@ int main(int argv, const char **argc){
 					clients[id]->pseudo_str, 
 					message->segment->next->size, 
 					message->segment->next->body);
-				sendAll(message, clients, nb_client);
+				sendAll(message, clients, nb_client, 0);
 			} 
 			else if(strcmp(message->type, "PRVT") == 0){
-				message = prvt_server(
-					clients[id]->pseudo_size, 
-					clients[id]->pseudo_str, 
-					message->segment->next->next->size,
-					message->segment->next->next->body);
 				
-				int i = 0;
-				while(strcmp(message->segment->next->body, clients[i]->pseudo_str) && i < nb_client) i++;
-				send(message, clients[i]->pipe);
-			} 
+				int i = 0, ok = -1;
+				while(i < nb_client && ok == -1){
+					ok = strcmp(message->segment->next->body, clients[i]->pseudo_str)? 0: -1;
+					i++;
+				} 
+
+				if(ok == 0){
+					message = prvt_server(
+						clients[id]->pseudo_size, 
+						clients[id]->pseudo_str, 
+						message->segment->next->next->size,
+						message->segment->next->next->body);
+					send(message, clients[i]->pipe, 0);
+				}
+				else{
+					message = badd();
+					send(message, clients[id]->pipe, 0);
+				}
+			}
 			else if(strcmp(message->type, "LIST") == 0){
 				char n_str[11];
-				int n_size = itoa(n_str, sizeof(n_str));
+				int n_size = itoa(n_str, nb_client);
 
 				for (int i = 0; i < nb_client; ++i){
 					message = list_server(
@@ -101,7 +115,7 @@ int main(int argv, const char **argc){
 						n_str,
 						clients[i]->pseudo_size, 
 						clients[i]->pseudo_str);
-					send(message, clients[id]->pipe);
+					send(message, clients[id]->pipe, 0);
 				}
 			} 
 			else if(strcmp(message->type, "SHUT") == 0){
@@ -109,7 +123,7 @@ int main(int argv, const char **argc){
 				message = shut_server(
 					clients[id]->pseudo_size, 
 					clients[id]->pseudo_str);
-				sendAll(message, clients, nb_client);
+				sendAll(message, clients, nb_client, 0);
 			}
 		}
 		freeMessage(message);
@@ -118,6 +132,6 @@ int main(int argv, const char **argc){
 		close(clients[i]->pipe);
 	}
 	remove(PIPE_SERVER_PATH);
-	printf("exit\n");
+	printf("[exit]\n");
 	return 0;
 }

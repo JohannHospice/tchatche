@@ -20,7 +20,6 @@ struct segment *newSegment(int size, char *body){
 	return segment;
 }
 
-// ajoute segment
 void addSegment(struct message *message, int size, char *body){
 	message->length += size + 4;
 	struct segment *segment_tmp = newSegment(size, body);
