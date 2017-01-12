@@ -3,6 +3,11 @@
 #include "tools.h"
 #include "message.h"
 
+/**
+ * constructeur de message
+ * @param type
+ * @return
+ */
 struct message *newMessage(char *type){
 	struct message* message = malloc(sizeof(struct message));
 	message->size = 8;
@@ -12,6 +17,12 @@ struct message *newMessage(char *type){
 	return message;
 }
 
+/**
+ * constructeur de segment
+ * @param body_size
+ * @param body_str
+ * @return
+ */
 struct segment *newSegment(int body_size, char *body_str){
 	struct segment *segment = malloc(sizeof(struct segment));
 	segment->next = NULL;
@@ -21,6 +32,12 @@ struct segment *newSegment(int body_size, char *body_str){
 	return segment;
 }
 
+/**
+ * recuperer le segment d'un message d'une certaine profondeur
+ * @param message
+ * @param level
+ * @return
+ */
 struct segment *getSegment(struct message *message, int level){
 	struct segment *segment = message->segment;
 	for (int i = 0; i < level; ++i){
@@ -31,6 +48,12 @@ struct segment *getSegment(struct message *message, int level){
 	return segment;
 }
 
+/**
+ * ajoute un segment à un message
+ * @param message
+ * @param size
+ * @param body
+ */
 void addSegment(struct message *message, int size, char *body){
 	message->size += size + 4;
 	struct segment *segment_tmp = newSegment(size, body);
@@ -45,6 +68,10 @@ void addSegment(struct message *message, int size, char *body){
 	}
 }
 
+/**
+ * affiche un message
+ * @param message
+ */
 void printMessage(const struct message *message){
 	printf("message:\n\tlength: %d\n\ttype: %s\n", message->size, message->type);
 	struct segment *segment = message->segment;
@@ -57,10 +84,19 @@ void printMessage(const struct message *message){
 	}
 }
 
+/**
+ * affiche un segment
+ * @param segment
+ */
 void printSegment(const struct segment *segment){
 	printf("segment:\n\tsize: %d\n\tbody: %s\n", segment->body_size, segment->body_str);
 }
 
+/**
+ * verifie qu'un message soit correct
+ * @param message
+ * @return
+ */
 //TODO: advance checker
 int verify(const struct message *message) {
 	int length = 8;
@@ -77,6 +113,13 @@ int verify(const struct message *message) {
 	return 0;
 }
 
+/**
+ * lit un message
+ * retourne la transformation d'une chaine de caractere en une structure message
+ * @param str
+ * @param length
+ * @return
+ */
 struct message *parseMessage(const char *str){
 	//get message body_size
 	char length_str[4];
@@ -88,6 +131,13 @@ struct message *parseMessage(const char *str){
 	return parseMessageWithLength(re, length - 4);
 }
 
+/**
+ * lit un message
+ * retourne la transformation d'une chaine de caractere en une structure message en connaissant la taille de la chaine de caractere
+ * @param str
+ * @param length
+ * @return
+ */
 struct message *parseMessageWithLength(char *str, const int length){
 	//get type
 	char type[4];
@@ -111,7 +161,12 @@ struct message *parseMessageWithLength(char *str, const int length){
 	}
 	return message;
 }
-
+/**
+ * ecrit un message
+ * retourne la transformation une structure message en une chaine de caractere
+ * @param message
+ * @return
+ */
 char *composeMessage(const struct message *message) {
 	if(verify(message) == 0)
 		return NULL;
@@ -143,7 +198,10 @@ char *composeMessage(const struct message *message) {
 	messageStr[message->size] = '\0';
 	return messageStr;
 }
-
+/**
+ * libere la memoire d'une structure segment
+ * @param segment
+ */
 void freeSegment(struct segment **segment){
     if(*segment != NULL){
         if((*segment)->next != NULL)
@@ -154,6 +212,10 @@ void freeSegment(struct segment **segment){
     }
 }
 
+/**
+ * libere la memoire d'une structure message
+ * @param message
+ */
 void freeMessage(struct message **message){
     if(*message != NULL){
         if((*message)->segment != NULL)

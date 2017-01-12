@@ -3,6 +3,18 @@
 #include "user.h"
 #include "tools.h"
 
+/**
+ * constructeur pour utilisateur
+ * @param id
+ * @param id_size
+ * @param id_str
+ * @param pseudo_size
+ * @param pseudo_str
+ * @param pipe_size
+ * @param pipe_str
+ * @param pipe
+ * @return
+ */
 struct user *newUser(int id, int id_size, char *id_str, int pseudo_size, char *pseudo_str, int pipe_size, char *pipe_str, int pipe){
 	struct user *user = malloc(sizeof(struct user));
 	user->id = id;
@@ -20,6 +32,10 @@ struct user *newUser(int id, int id_size, char *id_str, int pseudo_size, char *p
     return user;
 }
 
+/**
+ * affiche information utilisateur
+ * @param user
+ */
 void printUser(struct user *user){
 	if(user != NULL)
 		printf("user:\n\tid: %d\n\tpseudo_str: %s\n\tpseudo_size: %d\n\tpipe_str: %s\n\tpipe_size: %d\n\tpipe: %d\n",
@@ -31,6 +47,10 @@ void printUser(struct user *user){
 			user->pipe);
 }
 
+/**
+ * libere la place memoire de l'utilisateur
+ * @param user
+ */
 void freeUser(struct user **user){
     free((*user)->id_str);
     free((*user)->pipe_str);

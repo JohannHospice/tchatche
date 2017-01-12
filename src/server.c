@@ -17,9 +17,9 @@
 #define PIPE_SERVER_PATH "tmp/serv"
 #define LIMIT_CLIENT 20
 
-
-/*
+/**
  * initialisation: création du repertoire temporaire et du pipe server
+ * @return
  */
 int init(){
 	if(access(TMP_PATH, F_OK) != F_OK)
@@ -38,6 +38,7 @@ int main(int argv, const char **argc){
 		return -1;
 	}
 
+    printf("Waiting for clients\n");
 
     int run = 1,
 		users_size = 0,
@@ -47,7 +48,6 @@ int main(int argv, const char **argc){
     struct message *message_send = NULL;
     struct message *message_receive = NULL;
 
-    printf("waiting for client\n");
     do {
         // attente et reception d'un éventuelle message
 		if((message_receive = receive(pipe_r, 0)) == NULL)

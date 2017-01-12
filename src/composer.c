@@ -1,4 +1,6 @@
-#include "tools.h"
+/**
+ * permet la formation different type de message
+ */
 #include "message.h"
 #include "composer.h"
 

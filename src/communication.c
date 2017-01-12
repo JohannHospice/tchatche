@@ -6,7 +6,14 @@
 #include "message.h"
 #include "communication.h"
 
-
+/**
+ * permet d'envoyer un message sur un pipe
+ * si printMessage == 0 affiche le message envoyé
+ * @param message
+ * @param pipe
+ * @param printMessage
+ * @return
+ */
 int send(struct message *message, int pipe, int printMessage){
 	char *message_str = composeMessage(message);
 	int send = write(pipe, message_str, message->size);
@@ -15,7 +22,14 @@ int send(struct message *message, int pipe, int printMessage){
 	free(message_str);
 	return send;
 }
-
+/**
+ * permet d'envoyer un message meme à plusieurs utilisateurs
+ * si printMessage == 0 affiche le message envoyé
+ * @param message
+ * @param users
+ * @param size
+ * @param printMessage
+ */
 void sendAll(struct message *message, struct user **users, int size, int printMessage){
 	char *message_str = composeMessage(message);
 	for (int i = 0; i < size; ++i)
@@ -25,6 +39,13 @@ void sendAll(struct message *message, struct user **users, int size, int printMe
 	free(message_str);
 }
 
+/**
+ * permet d'envoyer un message meme à plusieurs utilisateurs
+ * si printMessage == 0 affiche le message envoyé
+ * @param pipe
+ * @param printMessage
+ * @return
+ */
 struct message *receive(int pipe, int printMessage){
 	char length_str[4];
 	int lus = read(pipe, &length_str, sizeof(length_str));

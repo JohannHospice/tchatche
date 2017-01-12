@@ -25,7 +25,10 @@
 #define INPUT_BYEE "byee"
 #define INPUT_PRIVATE "private:"
 
-// verification de presence du server et connection
+/**
+ * verification de presence du server et connection
+ * @return
+ */
 int connectToServer() {
 	if(access(TMP_STR, F_OK) != F_OK || access(PIPE_SERVER_PATH, F_OK) != F_OK)
 		return -1;
@@ -41,18 +44,12 @@ void clearInputBuffer(){
     do c = getchar(); while (c != '\n' && c != EOF);
 }
 
-//saisie du pseudo
-int login(char *pseudo_str, int pseudo_limit){
-	printf("Pseudo> ");
-	scanf("%s", pseudo_str);
-	clearInputBuffer();
-	//	fgets(pseudo_str, pseudo_limit, stdin);
-	int pseudo_size = 0;
-	while(pseudo_str[pseudo_size]!='\0' && pseudo_size < pseudo_limit)
-		pseudo_size++;
-	return pseudo_size;
-}
-
+/**
+ * création du pipe de lecture
+ * @param pipe_str
+ * @param pipe_limit
+ * @return
+ */
 int createReadPipe(char *pipe_str, int pipe_limit){
 	//verifie si nexiste pas deja
 	char rand_str[11]; 
@@ -71,6 +68,28 @@ int createReadPipe(char *pipe_str, int pipe_limit){
 	return pipe_size;
 }
 
+/**
+ * saisie du pseudo
+ * @param pseudo_str
+ * @param pseudo_limit
+ * @return
+ */
+int login(char *pseudo_str, int pseudo_limit){
+    printf("Pseudo> ");
+    scanf("%s", pseudo_str);
+    clearInputBuffer();
+    //	fgets(pseudo_str, pseudo_limit, stdin);
+    int pseudo_size = 0;
+    while(pseudo_str[pseudo_size]!='\0' && pseudo_size < pseudo_limit)
+        pseudo_size++;
+    return pseudo_size;
+}
+
+/**
+ * sequence de création de l'identité de l'utilisateur
+ * @param pipe_w
+ * @return
+ */
 struct user *generateIdentity(int pipe_w){
     struct user *user = NULL;
 
@@ -122,12 +141,12 @@ int main(int argv, const char **argc){
 
 	printf("Connected.\n");
 	int run = 1;
-    pid_t reader = fork();
+    // creation du processus de lecture du pipe
+    pid_t p_reader = fork();
     struct message *message;
-    if(reader == -1) {
+    if(p_reader == -1)
         perror("fork");
-    }
-	else if(reader == 0){
+	else if(p_reader == 0){
         do {
 			if((message = receive(user->pipe, -1)) != NULL) {
 				if(strcmp(message->type, OKOK) == 0){
@@ -191,20 +210,27 @@ int main(int argv, const char **argc){
 					char pseudo_str[20];
 					int pseudo_size = slice_to_char(txt_size, txt_str, sizeof(pseudo_str), pseudo_str, 8, ' ');
 					int from = pseudo_size + 9;
-					
+
 					int private_txt_size = txt_size - from;
-					char private_txt_str[private_txt_size];
-				
-					slice(txt_str, private_txt_str, from, txt_size);
-				
-					message = prvt_client(
-						user->id_size,
-						user->id_str, 
-						pseudo_size,
-						pseudo_str,
-						private_txt_size,
-						private_txt_str);
-				}
+                    //TODO: replace with verification in composer or messages
+                    if(private_txt_size < 0)
+                        message = prvt_client(
+                                user->id_size,
+                                user->id_str,
+                                pseudo_size,
+                                pseudo_str,0,"");
+                    else{
+                        char private_txt_str[private_txt_size];
+                        slice(txt_str, private_txt_str, from, txt_size);
+                        message = prvt_client(
+                                user->id_size,
+                                user->id_str,
+                                pseudo_size,
+                                pseudo_str,
+                                private_txt_size,
+                                private_txt_str);
+                    }
+                }
 				else
 					message = bcst_client(user->id_size, user->id_str, txt_size, txt_str);
 				send(message, pipe_w, -1);
