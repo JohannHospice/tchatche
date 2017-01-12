@@ -122,12 +122,13 @@ int main(int argv, const char **argc){
 
 	printf("Connected.\n");
 	int run = 1;
-	pid_t reader = fork();
-	if(reader == -1)
-		perror("fork");
+    pid_t reader = fork();
+    struct message *message;
+    if(reader == -1) {
+        perror("fork");
+    }
 	else if(reader == 0){
-		do {
-			struct message *message;
+        do {
 			if((message = receive(user->pipe, -1)) != NULL) {
 				if(strcmp(message->type, OKOK) == 0){
 					printf("%s", SEPARATOR_INPUT);
@@ -168,7 +169,6 @@ int main(int argv, const char **argc){
 		remove(user->pipe_str);
 	}
 	else {
-		struct message *message;
 		do {
 			printf("%s", SEPARATOR_INPUT);
 			char txt_str[255];

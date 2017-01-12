@@ -1,4 +1,3 @@
-#define DEBUG 1
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,6 +18,9 @@
 #define LIMIT_CLIENT 20
 
 
+/*
+ * initialisation: création du repertoire temporaire et du pipe server
+ */
 int init(){
 	if(access(TMP_PATH, F_OK) != F_OK)
 		if(mkdir(TMP_PATH, RWX_ALL) == -1)
@@ -36,25 +38,30 @@ int main(int argv, const char **argc){
 		return -1;
 	}
 
-	printf("waiting for client\n");
-	
-	int run = 1,
-		nb_client = 0,
+
+    int run = 1,
+		users_size = 0,
 		pipe_r = open(PIPE_SERVER_PATH, O_RDONLY);
 
-	struct user *clients[LIMIT_CLIENT];
-	struct message *message_send = NULL;
-	struct message *message_receive = NULL;
-	do {
+    struct user *users[LIMIT_CLIENT];
+    struct message *message_send = NULL;
+    struct message *message_receive = NULL;
+
+    printf("waiting for client\n");
+    do {
+        // attente et reception d'un éventuelle message
 		if((message_receive = receive(pipe_r, 0)) == NULL)
 			continue;
+
 		if(strcmp(message_receive->type, HELO) == 0) {
 			printf("[new client]\n");			
 				
 			char id_str[11];
-			int id_size = itoa(id_str, nb_client);
-			clients[nb_client] = newUser(
-				nb_client, 
+			int id_size = itoa(id_str, users_size);
+			// ajout d'un nouvel utilisateur
+            // TODO: bonne gestion ajout utilisateur
+            users[users_size] = newUser(
+				users_size,
 				id_size,
 				id_str,
 				message_receive->segment->body_size,
@@ -62,77 +69,84 @@ int main(int argv, const char **argc){
 				message_receive->segment->next->body_size,
 				message_receive->segment->next->body_str,
 				open(message_receive->segment->next->body_str, O_WRONLY));
-            printUser(clients[nb_client]);
-			message_send = okok(clients[nb_client]->id_size, clients[nb_client]->id_str);
-			send(message_send, clients[nb_client]->pipe, 0);
-			nb_client++;
-		} 
+
+            printUser(users[users_size]);
+
+			message_send = okok(users[users_size]->id_size, users[users_size]->id_str);
+			send(message_send, users[users_size]->pipe, 0);
+			users_size++;
+		}
+            // cas où id present dans le message recu
 		else{
 			int id = atoi(message_receive->segment->body_str);
 			if(strcmp(message_receive->type, BYEE) == 0){
-				message_send = byee(clients[id]->id_size, clients[id]->id_str);
-				send(message_send, clients[id]->pipe, 0);
-				close(clients[id]->pipe);
-				free(clients[id]);
+                // TODO: bonne gestion perte utilisateur
+                message_send = byee(users[id]->id_size, users[id]->id_str);
+                send(message_send, users[id]->pipe, 0);
+                close(users[id]->pipe);
+				free(users[id]);
 			} 
 			else if(strcmp(message_receive->type, BCST) == 0){
 				message_send = bcst_server(
-					clients[id]->pseudo_size, 
-					clients[id]->pseudo_str, 
+					users[id]->pseudo_size,
+					users[id]->pseudo_str,
 					message_receive->segment->next->body_size,
 					message_receive->segment->next->body_str);
-				sendAll(message_send, clients, nb_client, 0);
+				sendAll(message_send, users, users_size, 0);
 			} 
 			else if(strcmp(message_receive->type,PRVT)== 0){
 				int ok, i = 0;
-
-                while(i < nb_client
-					&& (ok = strcmp(message_receive->segment->next->body_str, clients[i]->pseudo_str)) != 0){
+                // si pseudo dans message existe dans liste utilisateur
+                while(i < users_size
+					&& (ok = strcmp(message_receive->segment->next->body_str, users[i]->pseudo_str)) != 0){
                     i++;
                 }
 				if(ok == 0){
 					message_send = prvt_server(
-						clients[id]->pseudo_size, 
-						clients[id]->pseudo_str, 
+						users[id]->pseudo_size,
+						users[id]->pseudo_str,
 						message_receive->segment->next->next->body_size,
 						message_receive->segment->next->next->body_str);
-					send(message_send, clients[i]->pipe, 0);
+					send(message_send, users[i]->pipe, 0);
 				}
 				else{
 					message_send = badd();
-					send(message_send, clients[id]->pipe, 0);
+					send(message_send, users[id]->pipe, 0);
 				}
 			}
 			else if(strcmp(message_receive->type, LIST) == 0){
 				char nb_client_str[11];
-				int nb_client_size = itoa(nb_client_str, nb_client);
-				for (int i = 0; i < nb_client; ++i){
+				int nb_client_size = itoa(nb_client_str, users_size);
+				for (int i = 0; i < users_size; ++i){
 					message_send = list_server(
 						nb_client_size,
 						nb_client_str,
-						clients[i]->pseudo_size, 
-						clients[i]->pseudo_str);
-					send(message_send, clients[id]->pipe, 0);
+						users[i]->pseudo_size,
+						users[i]->pseudo_str);
+					send(message_send, users[id]->pipe, 0);
 				}
 			} 
 			else if(strcmp(message_receive->type, SHUT) == 0){
 				run = 0;
 				message_send = shut_server(
-					clients[id]->pseudo_size, 
-					clients[id]->pseudo_str);
-				sendAll(message_send, clients, nb_client, 0);
+					users[id]->pseudo_size,
+					users[id]->pseudo_str);
+				sendAll(message_send, users, users_size, 0);
 			}
 			else {
 				message_send = badd();
-				send(message_send, clients[id]->pipe, 0);
+				send(message_send, users[id]->pipe, 0);
 			}
 		}
 		freeMessage(&message_receive);
 		freeMessage(&message_send);
 	} while(run);
-	for (int i = 0; i < nb_client; ++i){
-		close(clients[i]->pipe);
-	}
+
+	for (int i = 0; i < users_size; ++i){
+        close(users[i]->pipe);
+        freeUser(&users[i]);
+    }
+    close(pipe_r);
 	remove(PIPE_SERVER_PATH);
 	printf("[exit]\n");
 	return 0;

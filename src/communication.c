@@ -28,11 +28,12 @@ void sendAll(struct message *message, struct user **users, int size, int printMe
 struct message *receive(int pipe, int printMessage){
 	char length_str[4];
 	int lus = read(pipe, &length_str, sizeof(length_str));
-
+    length_str[4] = '\0';
 	if(lus > 0){
 		int length = atoi(length_str) - sizeof(length_str);
 		char buffer[length];
 		lus = read(pipe, &buffer, length);
+        buffer[length] = '\0';
 		if(lus > 0){
 			if(printMessage == 0)
 				printf("[receive] %s%s\n", length_str, buffer);

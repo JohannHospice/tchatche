@@ -140,7 +140,7 @@ char *composeMessage(const struct message *message) {
 		
 		segment = segment->next;
 	}
-
+	messageStr[message->size] = '\0';
 	return messageStr;
 }
 
