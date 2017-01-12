@@ -6,22 +6,34 @@
 
 struct message *newMessage(char *type){
 	struct message* message = malloc(sizeof(struct message));
-	message->type = type;
-	message->length = 8;
+	message->size = 8;
 	message->segment = NULL;
+	message->type = malloc(sizeof(char) * 4);
+	strcpy(message->type, type);
 	return message;
 }
 
-struct segment *newSegment(int size, char *body){
+struct segment *newSegment(int body_size, char *body_str){
 	struct segment *segment = malloc(sizeof(struct segment));
-	segment->size = size;
-	segment->body = body;
 	segment->next = NULL;
+	segment->body_size = body_size;
+	segment->body_str = malloc(sizeof(char) * body_size);
+	strcpy(segment->body_str, body_str);
+	return segment;
+}
+
+struct segment *getSegment(struct message *message, int level){
+	struct segment *segment = message->segment;
+	for (int i = 0; i < level; ++i){
+		if(segment == NULL)
+			return NULL;
+		segment = segment->next;
+	}
 	return segment;
 }
 
 void addSegment(struct message *message, int size, char *body){
-	message->length += size + 4;
+	message->size += size + 4;
 	struct segment *segment_tmp = newSegment(size, body);
 
 	if(message->segment == NULL)
@@ -35,19 +47,19 @@ void addSegment(struct message *message, int size, char *body){
 }
 
 void printMessage(const struct message *message){
-	printf("message:\n\tlength: %d\n\ttype: %s\n", message->length, message->type);
+	printf("message:\n\tlength: %d\n\ttype: %s\n", message->size, message->type);
 	struct segment *segment = message->segment;
 	if(segment != NULL){
-		printf("\tsegment:\n\t\tsize: %d\n\t\tbody: %s\n", segment->size, segment->body);
+		printf("\tsegment:\n\t\tsize: %d\n\t\tbody: %s\n", segment->body_size, segment->body_str);
 		while(segment->next != NULL){
-			printf("\tsegment:\n\t\tsize: %d\n\t\tbody: %s\n", segment->next->size, segment->next->body);
+			printf("\tsegment:\n\t\tsize: %d\n\t\tbody: %s\n", segment->next->body_size, segment->next->body_str);
 			segment = segment->next;
 		}
 	}
 }
 
 void printSegment(const struct segment *segment){
-	printf("segment:\n\tsize: %d\n\tbody: %s\n", segment->size, segment->body);
+	printf("segment:\n\tsize: %d\n\tbody: %s\n", segment->body_size, segment->body_str);
 }
 
 //TODO: advance checker
@@ -56,51 +68,59 @@ int verify(const struct message *message) {
 	
 	struct segment *segment = message->segment;
 	while(segment != NULL) {
-		length += segment->size + 4;
+		length += segment->body_size + 4;
 		segment = segment->next;
 	}
 
-	if(length == message->length)
+	if(length == message->size)
 		return 1;
 
 	return 0;
 }
 
 struct message *parseMessage(const char *str){
-	
-	//get message length
-	int length = atoi(splitStr(str, 0, 4));
-	
+	//get message body_size
+	char length_str[4];
+	slice(str, length_str, 0, 4);
+	int length = atoi(length_str);
+
+	char re[length - 4];
+	slice(str, re, 4, length);
+	return parseMessageWithLength(re, length - 4);
+}
+
+struct message *parseMessageWithLength(char *str, const int length){
 	//get type
-	struct message *message = newMessage(splitStr(str, 4, 8));
-
+	char type[4];
+	slice(str, type, 0, 4);
+	struct message *message = newMessage(type);
 	//get segments 
-	int index = 8;
+	int index = 4;
 	while(index < length){
-		//get segment size
-		int size = atoi(splitStr(str, index, index + 4));
+		//get segment body_size
+		char body_size[4];
+		slice(str, body_size, index, index + 4);
 		index += 4;
+		int size = atoi(body_size);
 
-		//get segment body
-		char *body = splitStr(str, index, index + size);
+		//get segment body_str
+		char body_str[size];
+		slice(str, body_str, index, index + size);
+
 		index += size;
-
-		addSegment(message, size, body);
+		addSegment(message, size, body_str);
 	}
-	
 	return message;
 }
 
 char *composeMessage(const struct message *message) {
-	if(verify(message) == 0){
-		printf("error: message composition unvalid\n");
+	if(verify(message) == 0)
 		return NULL;
-	}
 
-	char *messageStr = malloc(sizeof(char) * message->length);
+	char *messageStr = malloc(sizeof(char) * message->size);
 	
 	char length[4];
-	itoa_formated(length, message->length, 4, '0');
+	itoa_formated(length, message->size, 4, '0');
 
 	for (int i = 0; i < 4; ++i)
 		messageStr[i] = length[i];
@@ -111,13 +131,13 @@ char *composeMessage(const struct message *message) {
 
 	struct segment *segment = message->segment;
 	while(segment != NULL) {
-		itoa_formated(length, segment->size, 4, '0');
+		itoa_formated(length, segment->body_size, 4, '0');
 
 		for (int i = 0; i < 4; ++i)
 			messageStr[indexMessage++] = length[i];
 		
-		for (int i = 0; i < segment->size; ++i)
-			messageStr[indexMessage++] = segment->body[i];
+		for (int i = 0; i < segment->body_size; ++i)
+			messageStr[indexMessage++] = segment->body_str[i];
 		
 		segment = segment->next;
 	}
@@ -126,9 +146,11 @@ char *composeMessage(const struct message *message) {
 }
 
 void freeSegment(struct segment *segment){
-	if(segment->next != NULL)
-		freeSegment(segment->next);
-	free(segment);
+	if(segment != NULL){
+		if(segment->next != NULL)
+			freeSegment(segment->next);
+		free(segment);
+	}
 }
 
 void freeMessage(struct message *message){

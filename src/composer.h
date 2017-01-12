@@ -1,3 +1,13 @@
+#define HELO "HELO"
+#define OKOK "OKOK"
+#define BYEE "BYEE"
+#define BCST "BCST"
+#define PRVT "PRVT"
+#define LIST "LIST"
+#define SHUT "SHUT"
+#define BADD "BADD"
+#define DEBG "DEBG"
+
 struct message *helo(int pseudo_size, char *pseudo_str, int tube_size, char *tube);
 struct message *okok(int id_size, char *id_str);
 struct message *badd();

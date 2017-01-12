@@ -43,12 +43,13 @@ int main(int argv, const char **argc){
 		pipe_r = open(PIPE_SERVER_PATH, O_RDONLY);
 
 	struct user *clients[LIMIT_CLIENT];
+	struct message *message_send = NULL;
+	struct message *message_receive = NULL;
 	do {
-		struct message *message = receive(pipe_r, 0);
-		if(message == NULL){
+		if((message_receive = receive(pipe_r, 0)) == NULL){
 			continue;
 		}
-		if(strcmp(message->type, "HELO") == 0) {
+		if(strcmp(message_receive->type, HELO) == 0) {
 			printf("[new client]\n");			
 				
 			char id_str[11];
@@ -57,76 +58,77 @@ int main(int argv, const char **argc){
 				nb_client, 
 				id_size,
 				id_str,
-				message->segment->size, 
-				message->segment->body, 
-				message->segment->next->size, 
-				message->segment->next->body,
-				open(message->segment->next->body, O_WRONLY));
-			printUser(clients[nb_client]);
+				message_receive->segment->body_size,
+				message_receive->segment->body_str,
+				message_receive->segment->next->body_size,
+				message_receive->segment->next->body_str,
+				open(message_receive->segment->next->body_str, O_WRONLY));
 			
-			message = okok(clients[nb_client]->id_size, clients[nb_client]->id_str);
-			send(message, clients[nb_client]->pipe, 0);
+			message_send = okok(clients[nb_client]->id_size, clients[nb_client]->id_str);
+			send(message_send, clients[nb_client]->pipe, 0);
 			nb_client++;
 		} 
 		else{
-			int id = atoi(message->segment->body);
-			if(strcmp(message->type, "BYEE") == 0){
-				message = byee(clients[id]->id_size, clients[id]->id_str);
-				send(message, clients[id]->pipe, 0);
+			int id = atoi(message_receive->segment->body_str);
+			if(strcmp(message_receive->type, BYEE) == 0){
+				message_send = byee(clients[id]->id_size, clients[id]->id_str);
+				send(message_send, clients[id]->pipe, 0);
 				close(clients[id]->pipe);
 				free(clients[id]);
 			} 
-			else if(strcmp(message->type, "BCST") == 0){
-				message = bcst_server(
+			else if(strcmp(message_receive->type, BCST) == 0){
+				message_send = bcst_server(
 					clients[id]->pseudo_size, 
 					clients[id]->pseudo_str, 
-					message->segment->next->size, 
-					message->segment->next->body);
-				sendAll(message, clients, nb_client, 0);
+					message_receive->segment->next->body_size,
+					message_receive->segment->next->body_str);
+				sendAll(message_send, clients, nb_client, 0);
 			} 
-			else if(strcmp(message->type, "PRVT") == 0){
-				
-				int i = 0, ok = -1;
-				while(i < nb_client && ok == -1){
-					ok = strcmp(message->segment->next->body, clients[i]->pseudo_str)? 0: -1;
+			else if(strcmp(message_receive->type,PRVT)== 0){
+				int ok, i = 0;
+				while(i < nb_client 
+					&& (ok = strcmp(message_receive->segment->next->body_str, clients[i]->pseudo_str)) != 0)
 					i++;
-				} 
-
 				if(ok == 0){
-					message = prvt_server(
+					message_send = prvt_server(
 						clients[id]->pseudo_size, 
 						clients[id]->pseudo_str, 
-						message->segment->next->next->size,
-						message->segment->next->next->body);
-					send(message, clients[i]->pipe, 0);
+						message_receive->segment->next->next->body_size,
+						message_receive->segment->next->next->body_str);
+					send(message_send, clients[i]->pipe, 0);
 				}
 				else{
-					message = badd();
-					send(message, clients[id]->pipe, 0);
+					message_send = badd();
+					send(message_send, clients[id]->pipe, 0);
 				}
+				freeMessage(message_send);
 			}
-			else if(strcmp(message->type, "LIST") == 0){
-				char n_str[11];
-				int n_size = itoa(n_str, nb_client);
-
+			else if(strcmp(message_receive->type, LIST) == 0){
+				char nb_client_str[11];
+				int nb_client_size = itoa(nb_client_str, nb_client);
 				for (int i = 0; i < nb_client; ++i){
-					message = list_server(
-						n_size,
-						n_str,
+					message_send = list_server(
+						nb_client_size,
+						nb_client_str,
 						clients[i]->pseudo_size, 
 						clients[i]->pseudo_str);
-					send(message, clients[id]->pipe, 0);
+					send(message_send, clients[id]->pipe, 0);
 				}
 			} 
-			else if(strcmp(message->type, "SHUT") == 0){
+			else if(strcmp(message_receive->type, SHUT) == 0){
 				run = 0;
-				message = shut_server(
+				message_send = shut_server(
 					clients[id]->pseudo_size, 
 					clients[id]->pseudo_str);
-				sendAll(message, clients, nb_client, 0);
+				sendAll(message_send, clients, nb_client, 0);
+			}
+			else {
+				message_send = badd();
+				send(message_send, clients[id]->pipe, 0);
 			}
 		}
-		freeMessage(message);
+		freeMessage(message_receive);
+		freeMessage(message_send);
 	} while(run);
 	for (int i = 0; i < nb_client; ++i){
 		close(clients[i]->pipe);

@@ -1,19 +1,6 @@
 #include <stdlib.h>
 #include "tools.h"
 
-char *splitStr(const char *str, const int from, const int to){
-	char *value = malloc(sizeof(char) * (to - from));
-
-	int indexValue = 0;
-	int indexStr = from;
-	for (indexStr = from; indexStr < to; ++indexStr){
-		value[indexValue] = str[indexStr];
-		indexValue++;
-	}
-
-	return value;
-}
-
 int str_size(char *str, int limit){
 	int size = 0;
 	while(str[size]!='\0' && size < limit) size++;
@@ -70,10 +57,10 @@ int slice_to_char(int size, char *str, int limit, char *buffer, int from, char t
 	return buffer_size;
 }
 
-int slice(const char *txt_str, char *buffer_str, const int from, const int to){
+int slice(const char *str1, char *str2, const int from, const int to){
 	int i, size = 0;
 	for (i = from; i < to; ++i)
-		buffer_str[size++] = txt_str[i];
+		str2[size++] = str1[i];
 	return size;
 }
 
