@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include "tools.h"
 #include "message.h"
 
@@ -9,7 +8,7 @@ struct message *newMessage(char *type){
 	message->size = 8;
 	message->segment = NULL;
 	message->type = malloc(sizeof(char) * 4);
-	strcpy(message->type, type);
+	str_cpy(message->type, type, 4);
 	return message;
 }
 
@@ -18,7 +17,7 @@ struct segment *newSegment(int body_size, char *body_str){
 	segment->next = NULL;
 	segment->body_size = body_size;
 	segment->body_str = malloc(sizeof(char) * body_size);
-	strcpy(segment->body_str, body_str);
+	str_cpy(segment->body_str, body_str, body_size);
 	return segment;
 }
 

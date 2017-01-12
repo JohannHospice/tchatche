@@ -46,9 +46,8 @@ int main(int argv, const char **argc){
 	struct message *message_send = NULL;
 	struct message *message_receive = NULL;
 	do {
-		if((message_receive = receive(pipe_r, 0)) == NULL){
+		if((message_receive = receive(pipe_r, 0)) == NULL)
 			continue;
-		}
 		if(strcmp(message_receive->type, HELO) == 0) {
 			printf("[new client]\n");			
 				
@@ -63,7 +62,7 @@ int main(int argv, const char **argc){
 				message_receive->segment->next->body_size,
 				message_receive->segment->next->body_str,
 				open(message_receive->segment->next->body_str, O_WRONLY));
-			
+            printUser(clients[nb_client]);
 			message_send = okok(clients[nb_client]->id_size, clients[nb_client]->id_str);
 			send(message_send, clients[nb_client]->pipe, 0);
 			nb_client++;
@@ -86,9 +85,12 @@ int main(int argv, const char **argc){
 			} 
 			else if(strcmp(message_receive->type,PRVT)== 0){
 				int ok, i = 0;
-				while(i < nb_client 
-					&& (ok = strcmp(message_receive->segment->next->body_str, clients[i]->pseudo_str)) != 0)
-					i++;
+
+                while(i < nb_client
+					&& (ok = strcmp(message_receive->segment->next->body_str, clients[i]->pseudo_str)) != 0){
+                    printf("%s / %s", message_receive->segment->next->body_str, clients[i]->pseudo_str);
+                    i++;
+                }
 				if(ok == 0){
 					message_send = prvt_server(
 						clients[id]->pseudo_size, 

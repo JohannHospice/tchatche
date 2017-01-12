@@ -7,6 +7,11 @@ int str_size(char *str, int limit){
 	return size;
 }
 
+void str_cpy(char * str1, char * str2, int size){
+	for(int i = 0; i < size; i++)
+		str1[i] = str2[i];
+}
+
 int itoa(char *str, int value){
 	if (str == NULL)
 		return -1;

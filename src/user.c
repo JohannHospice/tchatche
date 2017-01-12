@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include "user.h"
+#include "tools.h"
+
 struct user *newUser(int id, int id_size, char *id_str, int pseudo_size, char *pseudo_str, int pipe_size, char *pipe_str, int pipe){
 	struct user *user = malloc(sizeof(struct user));
 	user->id = id;
@@ -13,11 +14,12 @@ struct user *newUser(int id, int id_size, char *id_str, int pseudo_size, char *p
     user->id_str = malloc(sizeof(char) * id_size);
     user->pseudo_str = malloc(sizeof(char) *  pseudo_size);
     user->pipe_str = malloc(sizeof(char) * pipe_size);
-    strcpy(user->id_str, id_str);
-    strcpy(user->pseudo_str, pseudo_str);
-    strcpy(user->pipe_str, pipe_str);
+    str_cpy(user->id_str, id_str, id_size);
+    str_cpy(user->pipe_str, pipe_str, pipe_size);
+    str_cpy(user->pseudo_str, pseudo_str, pseudo_size);
     return user;
 }
+
 void printUser(struct user* user){
 	if(user != NULL)
 		printf("user:\n\tid: %d\n\tpseudo_str: %s\n\tpseudo_size: %d\n\tpipe_str: %s\n\tpipe_size: %d\n\tpipe: %d\n",
