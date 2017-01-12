@@ -88,7 +88,6 @@ int main(int argv, const char **argc){
 
                 while(i < nb_client
 					&& (ok = strcmp(message_receive->segment->next->body_str, clients[i]->pseudo_str)) != 0){
-                    printf("%s / %s", message_receive->segment->next->body_str, clients[i]->pseudo_str);
                     i++;
                 }
 				if(ok == 0){
@@ -103,7 +102,6 @@ int main(int argv, const char **argc){
 					message_send = badd();
 					send(message_send, clients[id]->pipe, 0);
 				}
-				freeMessage(message_send);
 			}
 			else if(strcmp(message_receive->type, LIST) == 0){
 				char nb_client_str[11];
@@ -129,8 +127,8 @@ int main(int argv, const char **argc){
 				send(message_send, clients[id]->pipe, 0);
 			}
 		}
-		freeMessage(message_receive);
-		freeMessage(message_send);
+		freeMessage(&message_receive);
+		freeMessage(&message_send);
 	} while(run);
 	for (int i = 0; i < nb_client; ++i){
 		close(clients[i]->pipe);

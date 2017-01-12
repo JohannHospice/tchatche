@@ -20,7 +20,7 @@ struct user *newUser(int id, int id_size, char *id_str, int pseudo_size, char *p
     return user;
 }
 
-void printUser(struct user* user){
+void printUser(struct user *user){
 	if(user != NULL)
 		printf("user:\n\tid: %d\n\tpseudo_str: %s\n\tpseudo_size: %d\n\tpipe_str: %s\n\tpipe_size: %d\n\tpipe: %d\n",
 			user->id,
@@ -29,4 +29,12 @@ void printUser(struct user* user){
 			user->pipe_str,
 			user->pipe_size,
 			user->pipe);
+}
+
+void freeUser(struct user **user){
+    free((*user)->id_str);
+    free((*user)->pipe_str);
+    free((*user)->pseudo_str);
+    free(*user);
+    *user = NULL;
 }

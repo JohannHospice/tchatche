@@ -83,7 +83,7 @@ struct user *generateIdentity(int pipe_w){
     // connection
     struct message *message = helo(pseudo_size, pseudo_str, pipe_size, pipe_str);
     send(message, pipe_w, -1);
-    freeMessage(message);
+    freeMessage(&message);
 
     int pipe_r = open(pipe_str, O_RDONLY);
     if(pipe_r == -1) {
@@ -101,7 +101,7 @@ struct user *generateIdentity(int pipe_w){
                 pipe_str,
                 pipe_r);
     }
-    freeMessage(message);
+    freeMessage(&message);
     return user;
 }
 
@@ -157,7 +157,7 @@ int main(int argv, const char **argc){
 					run = 0;
 				}
 				fflush(stdout);
-				freeMessage(message);
+				freeMessage(&message);
 			}
 			else {
 				perror("receive");
@@ -193,7 +193,7 @@ int main(int argv, const char **argc){
 					int from = pseudo_size + 9;
 					
 					int private_txt_size = txt_size - from;
-					char *private_txt_str = malloc(sizeof(char) * private_txt_size);
+					char private_txt_str[private_txt_size];
 				
 					slice(txt_str, private_txt_str, from, txt_size);
 				
@@ -208,12 +208,13 @@ int main(int argv, const char **argc){
 				else
 					message = bcst_client(user->id_size, user->id_str, txt_size, txt_str);
 				send(message, pipe_w, -1);
-				freeMessage(message);
+				freeMessage(&message);
 			}
 		} while(run);
 		close(pipe_w);
 		wait(NULL);
 		printf("[exit]\n");
 	}
+    freeUser(&user);
 	return 0;
 }

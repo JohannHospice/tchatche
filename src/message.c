@@ -144,18 +144,22 @@ char *composeMessage(const struct message *message) {
 	return messageStr;
 }
 
-void freeSegment(struct segment *segment){
-	if(segment != NULL){
-		if(segment->next != NULL)
-			freeSegment(segment->next);
-		free(segment);
-	}
+void freeSegment(struct segment **segment){
+    if(*segment != NULL){
+        if((*segment)->next != NULL)
+            freeSegment(&(*segment)->next);
+        free((*segment)->body_str);
+        free(*segment);
+        *segment = NULL;
+    }
 }
 
-void freeMessage(struct message *message){
-	if(message != NULL){
-		if(message->segment != NULL)
-			freeSegment(message->segment);
-		free(message);
-	}
+void freeMessage(struct message **message){
+    if(*message != NULL){
+        if((*message)->segment != NULL)
+            freeSegment(&(*message)->segment);
+        free(*message);
+        free((*message)->type);
+        *message = NULL;
+    }
 }

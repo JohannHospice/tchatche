@@ -12,3 +12,4 @@ struct user {
 };
 struct user *newUser(int id, int id_size, char *id_str, int pseudo_size, char *pseudo_str, int pipe_size, char *pipe_str, int pipe);
 void printUser(struct user* user);
+void freeUser(struct user **user);

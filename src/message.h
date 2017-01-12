@@ -21,5 +21,5 @@ struct message *parseMessage(const char *str);
 struct message *parseMessageWithLength(char *str, const int length);
 char *composeMessage(const struct message *message);
 
-void freeSegment(struct segment* segment);
-void freeMessage(struct message *message);
+void freeSegment(struct segment **segment);
+void freeMessage(struct message **message);
