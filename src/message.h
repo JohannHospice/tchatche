@@ -11,6 +11,7 @@ struct message {
 
 struct message *newMessage(char *type);
 struct segment *newSegment(int size, char *body_str);
+struct segment *getSegment(struct message *message, int level);
 
 void addSegment(struct message *message, int size, char *body);
 

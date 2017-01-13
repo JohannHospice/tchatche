@@ -32,9 +32,9 @@ int send(struct message *message, int pipe, int printMessage){
  */
 void sendAll(struct message *message, struct user **users, int size, int printMessage){
 	char *message_str = composeMessage(message);
-	for (int i = 0; i < size; ++i)
-		if(users != NULL)
-			write(users[i]->pipe, message_str, message->size);
+	int i;
+	for (i = 0; i < size; ++i)if(users[i] != NULL)
+		write(users[i]->pipe, message_str, message->size);
 	if(printMessage == 0)
 		printf("[send to all] %s\n", message_str);
 	free(message_str);

@@ -20,7 +20,7 @@ int str_size(char *str, int limit){
  * @param size
  */
 void str_cpy(char * str1, char * str2, int size){
-	for(int i = 0; i < size; i++)
+    int i; for(i = 0; i < size; i++)
 		str1[i] = str2[i];
 	str1[size] = '\0';
 }
@@ -62,7 +62,7 @@ int itoa(char *str, int value){
 }
 
 /**
- * ecrir dans la chaine de caractere passé en parametre la conversion d'un entier
+ * ecrit dans la chaine de caractere passé en parametre la conversion d'un entier
  * de plus permet d'appliquer un certain format, cad la longueur et les caractere par default
  * @param str
  * @param value
@@ -72,11 +72,13 @@ int itoa(char *str, int value){
  */
 int itoa_formated(char str[], int value, int size, char default_char){
 	int str_length = itoa(str, value);
-	
-	for (int i = size - 1; i >= str_length; --i)
+	if(str_length < 0)
+		return -1;
+    int i;
+    for (i = size - 1; i >= str_length; --i)
 		str[i] = str[(i + str_length)%size];
 
-	for (int i = 0; i < size - str_length; ++i)
+	for (i = 0; i < size - str_length; ++i)
 		str[i] = default_char;
 	
 	return str_length;

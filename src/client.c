@@ -111,15 +111,17 @@ struct user *generateIdentity(int pipe_w){
     }
     //wait for answer
     if((message = receive(pipe_r, -1)) != NULL && strcmp(message->type, OKOK) == 0) {
-        user = newUser(
-                atoi(message->segment->body_str),
-                message->segment->body_size,
-                message->segment->body_str,
-                pseudo_size,
-                pseudo_str,
-                pipe_size,
-                pipe_str,
-                pipe_r);
+        struct segment *id_segment = getSegment(message, 0);
+        if(id_segment != NULL)
+            user = newUser(
+                    atoi(id_segment->body_str),
+                    id_segment->body_size,
+                    id_segment->body_str,
+                    pseudo_size,
+                    pseudo_str,
+                    pipe_size,
+                    pipe_str,
+                    pipe_r);
     }
     freeMessage(&message);
     return user;
@@ -150,39 +152,51 @@ int main(int argv, const char **argc){
 	else if(p_reader == 0){
         do {
 			if((message = receive(user->pipe, -1)) != NULL) {
-				if(strcmp(message->type, OKOK) == 0){
+                if(strcmp(message->type, OKOK) == 0){
 					printf("%s", SEPARATOR_INPUT);
 				}
-                else if(strcmp(message->type, HELO) == 0){
-                    printf("[connection:%s]\n%s", message->segment->body_str, SEPARATOR_INPUT);
+                else if(strcmp(message->type, BADD) == 0) {
+                    printf("[badd]\n%s", SEPARATOR_INPUT);
                 }
-				else if(strcmp(message->type, BCST) == 0){
-					printf("[%s] %s\n%s", message->segment->body_str, message->segment->next->body_str, SEPARATOR_INPUT);
-				}
-				else if(strcmp(message->type, PRVT) == 0){
-					printf("[private:%s] %s\n%s", message->segment->body_str, message->segment->next->body_str, SEPARATOR_INPUT);
-				}
-				else if(strcmp(message->type, LIST) == 0){
-					printf("[list] %s\n%s", message->segment->next->body_str, SEPARATOR_INPUT);
-				} 
-				else if(strcmp(message->type, BADD) == 0) {
-					printf("[badd]\n%s", SEPARATOR_INPUT);
-				}
-				else if(strcmp(message->type, SHUT) == 0){
-					printf("[shut]\n");
-					run = 0;
-				}
+                else if(strcmp(message->type, SHUT) == 0){
+                    printf("[shut]\n");
+                    run = 0;
+                }
                 else if(strcmp(message->type, BYEE) == 0){
                     printf("[byee]\n");
                     run = 0;
                 }
-				else
-                    printf("[error]\n");
+                else if(strcmp(message->type, LIST) == 0){
+                    struct segment *pseudo_segment = getSegment(message, 1);
+                    if(pseudo_segment != NULL)
+                        printf("[list] %s\n%s", pseudo_segment->body_str, SEPARATOR_INPUT);
+                } 
+                else {
+                    struct segment *pseudo_segment = getSegment(message, 0);
+                    if(pseudo_segment != NULL){
+                        struct segment *txt_segment = getSegment(message, 1);
+
+                        if(strcmp(message->type, HELO) == 0) {
+                            printf("[connection:%s]\n%s", pseudo_segment->body_str, SEPARATOR_INPUT);
+                        }
+                        else if(strcmp(message->type, BCST) == 0){
+                            printf("[%s] %s\n%s", pseudo_segment->body_str, txt_segment->body_str, SEPARATOR_INPUT);
+                        }
+                        else if(strcmp(message->type, PRVT) == 0){
+                            printf("[private:%s] %s\n%s", pseudo_segment->body_str, txt_segment->body_str, SEPARATOR_INPUT);
+                        }
+                    }
+                    else
+                        printf("[error]\n%s", SEPARATOR_INPUT);
+                }
 				fflush(stdout);
 				freeMessage(&message);
 			}
-			else
-				perror("receive");
+			else {
+                printf("%s", SEPARATOR_INPUT);
+				perror("[receive]");
+                printf("%s", SEPARATOR_INPUT);
+            }
 		} while(run);
 		close(user->pipe);
 		remove(user->pipe_str);
@@ -231,6 +245,7 @@ int main(int argv, const char **argc){
                                 private_txt_str);
                     }
                 }
+                    /*
                 else if(str_start_with(txt_size, txt_str, 5, INPUT_FILE) == 0){
                     char pseudo_str[20];
                     int pseudo_size = slice_to_char(txt_size, txt_str, sizeof(pseudo_str), pseudo_str, 5, ':');
@@ -245,7 +260,6 @@ int main(int argv, const char **argc){
                     read(fd, &buffer, sizeof(buffer));
                     printf("%d%s\n%d%s\n",pseudo_size,pseudo_str,pathname_size,pathname_str);
                     message = badd();
-                    /*
                     int serie_size;
                     int serie_str[serie_size];
                     int filename_size;
@@ -266,8 +280,8 @@ int main(int argv, const char **argc){
                             filelength_str,
                             filename_size,
                             filename_str);
-                            */
                 }
+                            */
 				else
 					message = bcst_client(user->id_size, user->id_str, txt_size, txt_str);
 				send(message, pipe_w, -1);

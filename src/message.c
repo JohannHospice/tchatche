@@ -40,7 +40,7 @@ struct segment *newSegment(int body_size, char *body_str){
  */
 struct segment *getSegment(struct message *message, int level){
 	struct segment *segment = message->segment;
-	for (int i = 0; i < level; ++i){
+    int i; for (i = 0; i < level; ++i){
 		if(segment == NULL)
 			return NULL;
 		segment = segment->next;
@@ -175,22 +175,22 @@ char *composeMessage(const struct message *message) {
 	
 	char length[4];
 	itoa_formated(length, message->size, 4, '0');
-
-	for (int i = 0; i < 4; ++i)
+    int i;
+    for (i = 0; i < 4; ++i)
 		messageStr[i] = length[i];
 
 	int indexMessage = 4;
-	for (int i = 0; i < 4; ++i)
+	for (i = 0; i < 4; ++i)
 		messageStr[indexMessage++] = message->type[i];
 
 	struct segment *segment = message->segment;
 	while(segment != NULL) {
 		itoa_formated(length, segment->body_size, 4, '0');
 
-		for (int i = 0; i < 4; ++i)
+		for (i = 0; i < 4; ++i)
 			messageStr[indexMessage++] = length[i];
 		
-		for (int i = 0; i < segment->body_size; ++i)
+		for (i = 0; i < segment->body_size; ++i)
 			messageStr[indexMessage++] = segment->body_str[i];
 		
 		segment = segment->next;
