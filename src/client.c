@@ -24,6 +24,7 @@
 #define INPUT_SHUT "shut"
 #define INPUT_BYEE "byee"
 #define INPUT_PRIVATE "private:"
+#define INPUT_FILE "file:"
 
 /**
  * verification de presence du server et connection
@@ -100,7 +101,7 @@ struct user *generateIdentity(int pipe_w){
     int pipe_size = createReadPipe(pipe_str, 20);
 
     // connection
-    struct message *message = helo(pseudo_size, pseudo_str, pipe_size, pipe_str);
+    struct message *message = helo_client(pseudo_size, pseudo_str, pipe_size, pipe_str);
     send(message, pipe_w, -1);
     freeMessage(&message);
 
@@ -152,7 +153,10 @@ int main(int argv, const char **argc){
 				if(strcmp(message->type, OKOK) == 0){
 					printf("%s", SEPARATOR_INPUT);
 				}
-				else  if(strcmp(message->type, BCST) == 0){
+                else if(strcmp(message->type, HELO) == 0){
+                    printf("[connection:%s]\n%s", message->segment->body_str, SEPARATOR_INPUT);
+                }
+				else if(strcmp(message->type, BCST) == 0){
 					printf("[%s] %s\n%s", message->segment->body_str, message->segment->next->body_str, SEPARATOR_INPUT);
 				}
 				else if(strcmp(message->type, PRVT) == 0){
@@ -168,21 +172,17 @@ int main(int argv, const char **argc){
 					printf("[shut]\n");
 					run = 0;
 				}
-				else if(strcmp(message->type, BYEE) == 0){
-					printf("[byee]\n");
-					run = 0;
-				}
-				else {
-					perror("receive");
-					run = 0;
-				}
+                else if(strcmp(message->type, BYEE) == 0){
+                    printf("[byee]\n");
+                    run = 0;
+                }
+				else
+                    printf("[error]\n");
 				fflush(stdout);
 				freeMessage(&message);
 			}
-			else {
+			else
 				perror("receive");
-				run = 0;
-			}
 		} while(run);
 		close(user->pipe);
 		remove(user->pipe_str);
@@ -195,10 +195,10 @@ int main(int argv, const char **argc){
 				int txt_size = str_size(txt_str, sizeof(txt_str)) - 1;
                 txt_str[txt_size] = '\0';
 
-				if(strcmp(txt_str, INPUT_BYEE) == 0){
-					message = byee(user->id_size, user->id_str);
-					run = 0;
-				}
+                if(strcmp(txt_str, INPUT_BYEE) == 0){
+                    message = byee(user->id_size, user->id_str);
+                    run = 0;
+                }
 				else if(strcmp(txt_str, INPUT_SHUT) == 0) {
 					message = shut_client(user->id_size, user->id_str);
 					run = 0;
@@ -207,11 +207,11 @@ int main(int argv, const char **argc){
 					message = list_client(user->id_size, user->id_str);
 				}
 				else if(str_start_with(txt_size, txt_str, 8, INPUT_PRIVATE) == 0){
-					char pseudo_str[20];
-					int pseudo_size = slice_to_char(txt_size, txt_str, sizeof(pseudo_str), pseudo_str, 8, ' ');
-					int from = pseudo_size + 9;
+                    char pseudo_str[20];
+                    int pseudo_size = slice_to_char(txt_size, txt_str, sizeof(pseudo_str), pseudo_str, 8, ' ');
+                    int from = pseudo_size + 9;
 
-					int private_txt_size = txt_size - from;
+                    int private_txt_size = txt_size - from;
                     //TODO: replace with verification in composer or messages
                     if(private_txt_size < 0)
                         message = prvt_client(
@@ -230,6 +230,43 @@ int main(int argv, const char **argc){
                                 private_txt_size,
                                 private_txt_str);
                     }
+                }
+                else if(str_start_with(txt_size, txt_str, 5, INPUT_FILE) == 0){
+                    char pseudo_str[20];
+                    int pseudo_size = slice_to_char(txt_size, txt_str, sizeof(pseudo_str), pseudo_str, 5, ':');
+                    int from = pseudo_size + 6;
+
+                    int pathname_size = txt_size - from;
+                    char pathname_str[pathname_size];
+                    slice(txt_str, pathname_str, from, txt_size);
+
+                    int fd = open(pathname_str, O_RDONLY);
+                    char buffer[256];
+                    read(fd, &buffer, sizeof(buffer));
+                    printf("%d%s\n%d%s\n",pseudo_size,pseudo_str,pathname_size,pathname_str);
+                    message = badd();
+                    /*
+                    int serie_size;
+                    int serie_str[serie_size];
+                    int filename_size;
+                    int filename_str[filename_size];
+                    int filelength_size;
+                    int filelength_str[filename_size];
+
+                    char pathname[pathname_size];
+                    slice(txt_str, pathname, from, txt_size);
+                    message = file_permission(
+                            serie_size,
+                            serie_str,
+                            user->id_size,
+                            user->id_str,
+                            pseudo_size,
+                            pseudo_str,
+                            filelength_size,
+                            filelength_str,
+                            filename_size,
+                            filename_str);
+                            */
                 }
 				else
 					message = bcst_client(user->id_size, user->id_str, txt_size, txt_str);
